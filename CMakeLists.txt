@@ -41,8 +41,8 @@ foreach(LIB_ITEM Config Fonts GUI LCD)
 endforeach()
 
 add_executable(main
-    src/main.c
     src/ImageData.c
+    src/main.c
 )
 
 pico_enable_stdio_usb(main 1)
@@ -50,4 +50,4 @@ pico_enable_stdio_uart(main 1)
 
 pico_add_extra_outputs(main)
 
-target_link_libraries(main 7941w ${WAVESHARE_LIBS}) 
+target_link_libraries(main pico_multicore 7941w ${WAVESHARE_LIBS}) 

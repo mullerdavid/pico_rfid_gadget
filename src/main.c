@@ -1,52 +1,29 @@
-/*****************************************************************************
-* | File      	:   LCD_1in3_test.c
-* | Author      :   Waveshare team
-* | Function    :   1.3inch LCD  test demo
-* | Info        :
-*----------------
-* |	This version:   V1.0
-* | Date        :   2021-08-20
-* | Info        :
-#
-# Permission is hereby granted, free of charge, to any person obtaining a copy
-# of this software and associated documnetation files (the "Software"), to deal
-# in the Software without restriction, including without limitation the rights
-# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-# copies of the Software, and to permit persons to  whom the Software is
-# furished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS OR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-# THE SOFTWARE.
-#
-******************************************************************************/
+#include <stdio.h>
 #include <stdlib.h> // malloc() free()
+#include <stdint.h>
+#include <inttypes.h>
+
+#include "pico/stdlib.h"
+#include "pico/multicore.h"
+#include "hardware/uart.h"
+
+#include "lib/7941w.h"
+
 #include "DEV_Config.h"
-#include "GUI_Paint.h"
-#include "ImageData.h"
 #include "Debug.h"
+#include "GUI_Paint.h"
 #include "LCD_1in3.h"
+
+#include "ImageData.h"
+
+static uint32_t core1_stack_static[PICO_CORE1_STACK_SIZE / sizeof(uint32_t)];
 
 bool reserved_addr(uint8_t addr) {
 return (addr & 0x78) == 0 || (addr & 0x78) == 0x78;
 }
 
-int main()
+int main_core0() 
 {
-
-    DEV_Delay_ms(100);
-    printf("LCD_1in3_test Demo\r\n");
-    if(DEV_Module_Init()!=0){
-        return -1;
-    }
-    DEV_SET_PWM(50);
     /* LCD Init */
     printf("1.3inch LCD demo...\r\n");
     LCD_1IN3_Init(HORIZONTAL);
@@ -146,6 +123,7 @@ int main()
 
     
     while(1){
+    #if 0
         if(DEV_Digital_Read(keyA ) == 0){
             Paint_DrawRectangle(208, 15, 236, 45, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_FULL);
             LCD_1IN3_DisplayWindows(208, 15, 236, 45,BlackImage);
@@ -236,7 +214,11 @@ int main()
             Paint_DrawRectangle(60, 105, 90, 135, WHITE, DOT_PIXEL_2X2,DRAW_FILL_FULL);
             LCD_1IN3_DisplayWindows(60, 105, 90, 135,BlackImage);
         }
-
+    #else
+	    //static int counter = 0;
+        //printf("[core0] At cycle %d\n", counter++);
+        sleep_ms(1000);
+    #endif
 
 
     }
@@ -250,4 +232,53 @@ int main()
     
     DEV_Module_Exit();
     return 0;
+}
+
+void main_core1() 
+{
+    while (true) {
+	    //static int counter = 0;
+        //printf("[core1] At cycle %d\n", counter++);
+        
+        uint64_t id = rfid_7941w_alt_read_id(uart1);
+
+        if (id != 0)
+        {
+            printf("Received id: %010lu\n", (uint32_t)id);
+            sleep_ms(500);
+        }
+
+        sleep_ms(100);
+        sleep_ms(800);
+    }
+}
+
+int main() 
+{
+    int ret;
+
+    stdio_init_all();
+    
+    sleep_ms(100);
+
+    // Also sets up I2C on Pin 6/7 which is unused for the lcd board
+    bool lcd_board_error = DEV_Module_Init();
+
+    // Need to come after DEV_Module_Init to reinit Pin 6/7 for uart1
+    rfid_7941w_init(uart1);
+    
+    multicore_launch_core1_with_stack(main_core1, core1_stack_static, sizeof(core1_stack_static));
+
+    if(lcd_board_error)
+    { 
+        sleep_ms(60000);
+        ret = -1;
+    }
+    else
+    {
+        DEV_SET_PWM(50);
+        ret = main_core0();
+    }
+    return ret;
+    
 }
