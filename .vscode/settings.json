@@ -26,5 +26,9 @@
     "cortex-debug.openocdPath": "${config:cmake.environment.PICO_INSTALL_PATH}\\openocd\\openocd.exe",
     "cortex-debug.gdbPath":"${config:cmake.environment.PICO_INSTALL_PATH}\\gcc-arm-none-eabi\\bin\\arm-none-eabi-gdb.exe",
     "cortex-debug.armToolchainPath": "${config:cmake.environment.PICO_INSTALL_PATH}\\gcc-arm-none-eabi\\bin\\",
+    "files.associations": {
+        "string.h": "c",
+        "gpio.h": "c"
+    },
     
 }

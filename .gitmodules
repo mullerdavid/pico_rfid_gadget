@@ -1,0 +1,6 @@
+[submodule "lib/pico_7941w"]
+	path = lib/pico_7941w
+	url = https://github.com/mullerdavid/pico_7941w.git
+[submodule "lib/Waveshare_Pico_code"]
+	path = lib/Waveshare_Pico_code
+	url = https://github.com/waveshare/Pico_code.git

@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 3.13)
 
 # Pull in PICO SDK (must be before project)
-include(pico_sdk_import.cmake)
+include($ENV{PICO_SDK_PATH}/external/pico_sdk_import.cmake)
 
-project(rfid_rw_7941w C CXX ASM)
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 
@@ -21,35 +20,34 @@ add_compile_options(-Wall
         )
 
 # Project files
+project(rfid_gadget C CXX ASM)
+
+# 7941w library
+add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/pico_7941w/lib/7941w)
+
+# Waveshare library
+set(WAVESHARE_LIBS Config Fonts GUI LCD)
+foreach(LIB_ITEM Config Fonts GUI LCD)
+    add_subdirectory(${CMAKE_CURRENT_LIST_DIR}/lib/Waveshare_Pico_code/c/lib/${LIB_ITEM})
+    target_include_directories(
+        ${LIB_ITEM} INTERFACE 
+        include ${CMAKE_CURRENT_LIST_DIR}/lib/Waveshare_Pico_code/c/lib/${LIB_ITEM}
+    )
+    target_compile_options(
+        ${LIB_ITEM} PRIVATE 
+        -Wno-unused-variable
+        -Wno-parentheses
+    )
+endforeach()
 
 add_executable(main
-src/main.c
-src/ImageData.c
-
-src/lib/7941w.c
-
-src/lib/waveshare/Config/DEV_config.c
-src/lib/waveshare/Fonts/font12.c
-src/lib/waveshare/Fonts/font12CN.c
-src/lib/waveshare/Fonts/font16.c
-src/lib/waveshare/Fonts/font20.c
-src/lib/waveshare/Fonts/font24.c
-src/lib/waveshare/Fonts/font24CN.c
-src/lib/waveshare/Fonts/font8.c
-src/lib/waveshare/GUI/GUI_Paint.c
-src/lib/waveshare/LCD/LCD_1in3.c
-
+    src/main.c
+    src/ImageData.c
 )
 
-target_include_directories(main PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}/src/lib/waveshare/Config
-    ${CMAKE_CURRENT_LIST_DIR}/src/lib/waveshare/Fonts
-    ${CMAKE_CURRENT_LIST_DIR}/src/lib/waveshare/GUI
-    ${CMAKE_CURRENT_LIST_DIR}/src/lib/waveshare/LCD
-)
 pico_enable_stdio_usb(main 1)
 pico_enable_stdio_uart(main 1)
 
 pico_add_extra_outputs(main)
 
-target_link_libraries(main pico_stdlib hardware_spi hardware_i2c hardware_pwm hardware_adc)
+target_link_libraries(main 7941w ${WAVESHARE_LIBS}) 
