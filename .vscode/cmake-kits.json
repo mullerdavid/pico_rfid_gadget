@@ -1,0 +1,8 @@
+[
+  {
+    "name": "Pico ARM GCC",
+    "description": "Pico SDK Toolchain with GCC arm-none-eabi",
+    "toolchainFile": "c:\\Program Files\\Raspberry Pi\\Pico SDK v1.5.0\\pico-sdk\\cmake\\preload\\toolchains\\pico_arm_gcc.cmake",
+    "environmentSetupScript": "c:\\Program Files\\Raspberry Pi\\Pico SDK v1.5.0\\pico-env.cmd"
+  }
+]

@@ -1,0 +1,30 @@
+{
+    "cmake.statusbar.advanced": {
+        "debug": {
+            "visibility": "hidden"
+        },
+        "launch": {
+            "visibility": "hidden"
+        },
+        "build": {
+            "visibility": "hidden"
+        },
+        "buildTarget": {
+            "visibility": "hidden"
+        }
+    },
+    "cmake.buildBeforeRun": true,
+    "cmake.configureOnOpen": true,
+    "cmake.generator": "Ninja",
+    "cmake.cmakePath": "C:\\Program Files\\Raspberry Pi\\Pico SDK v1.5.0\\cmake\\bin\\cmake.exe",
+    "cmake.environment": {
+        "PICO_INSTALL_PATH": "C:\\Program Files\\Raspberry Pi\\Pico SDK v1.5.0",
+    },
+    
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+
+    "cortex-debug.openocdPath": "${config:cmake.environment.PICO_INSTALL_PATH}\\openocd\\openocd.exe",
+    "cortex-debug.gdbPath":"${config:cmake.environment.PICO_INSTALL_PATH}\\gcc-arm-none-eabi\\bin\\arm-none-eabi-gdb.exe",
+    "cortex-debug.armToolchainPath": "${config:cmake.environment.PICO_INSTALL_PATH}\\gcc-arm-none-eabi\\bin\\",
+    
+}

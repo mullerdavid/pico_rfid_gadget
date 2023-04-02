@@ -1,0 +1,11 @@
+.idea
+_deps
+cmake-*
+build
+.DS_Store
+.vscode/*
+!.vscode/c_cpp_properties.json
+!.vscode/cmake-kits.json
+!.vscode/extensions.json
+!.vscode/launch.json
+!.vscode/settings.json

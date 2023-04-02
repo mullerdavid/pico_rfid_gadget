@@ -1,0 +1,18 @@
+{
+  "configurations": [
+    {
+      "name": "Pico",
+      "includePath": [
+        "${workspaceFolder}/**",
+        "${config:cmake.environment.PICO_INSTALL_PATH}/**"
+      ],
+      "defines": [],
+      "compilerPath": "${config:cmake.environment.PICO_INSTALL_PATH}/gcc-arm-none-eabi/bin/arm-none-eabi-gcc.exe",
+      "cStandard": "c11",
+      "cppStandard": "c++11",
+      "intelliSenseMode": "linux-gcc-arm",
+      "configurationProvider": "ms-vscode.cmake-tools"
+    }
+  ],
+  "version": 4
+}
