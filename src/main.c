@@ -2,6 +2,7 @@
 #include <stdlib.h> // malloc() free()
 #include <stdint.h>
 #include <inttypes.h>
+#include <string.h>
 
 #include "pico/stdlib.h"
 #include "pico/multicore.h"
@@ -37,13 +38,13 @@ int main_core0()
     
     //LCD_SetBacklight(1023);
     UDOUBLE Imagesize = LCD_1IN3_HEIGHT*LCD_1IN3_WIDTH*2;
-    UWORD *BlackImage;
-    if((BlackImage = (UWORD *)malloc(Imagesize)) == NULL) {
+    UWORD *FrameBuffer;
+    if((FrameBuffer = (UWORD *)malloc(Imagesize)) == NULL) {
         printf("Failed to apply for black memory...\r\n");
         exit(0);
     }
     // /*1.Create a new image cache named IMAGE_RGB and fill it with white*/
-    Paint_NewImage((UBYTE *)BlackImage,LCD_1IN3.WIDTH,LCD_1IN3.HEIGHT, 0, WHITE);
+    Paint_NewImage((UBYTE *)FrameBuffer,LCD_1IN3.WIDTH,LCD_1IN3.HEIGHT, 0, WHITE);
     Paint_SetScale(65);
     Paint_Clear(WHITE);
     Paint_SetRotate(ROTATE_0);
@@ -52,7 +53,12 @@ int main_core0()
     // /* GUI */
     printf("drawing...\r\n");
     // /*2.Drawing on the image*/
-#if 1
+#if 0
+     Paint_DrawImage(gImage_1inch3_1,0,0,240,240);
+     LCD_1IN3_Display(FrameBuffer);
+     DEV_Delay_ms(2000);
+#endif
+#if 0
     Paint_DrawPoint(2,1, BLACK, DOT_PIXEL_1X1,  DOT_FILL_RIGHTUP);//240 240
     Paint_DrawPoint(2,6, BLACK, DOT_PIXEL_2X2,  DOT_FILL_RIGHTUP);
     Paint_DrawPoint(2,11, BLACK, DOT_PIXEL_3X3, DOT_FILL_RIGHTUP);
@@ -79,19 +85,59 @@ int main_core0()
     Paint_DrawString_EN(1, 180, "0000000000", &Font24, WHITE, BLACK);
 
     // /*3.Refresh the picture in RAM to LCD*/
-    LCD_1IN3_Display(BlackImage);
+    LCD_1IN3_Display(FrameBuffer);
     DEV_Delay_ms(2000);
 
 #endif
 #if 1
-     Paint_DrawImage(gImage_1inch3_1,0,0,240,240);
-     LCD_1IN3_Display(BlackImage);
-     DEV_Delay_ms(2000);
-     
+    // Paint API has multiple bugs
+    // Paint_DrawChar: FONT_BACKGROUND (white) bg is not drawn, need manual coloring before in case of white
+    // Paint_DrawString_EN: bg and fg is swapped
+    // 1*Font24 plus 9*Font20 rows fit well on the 240p height (10 lines menu)
+    // 13*Font24 or 16*Font20 fit on the 240p width
 
-     
+    Paint_Clear(BLACK);
+    int x = 0;
+    int y = 0;
+    int spacing = 3;
+    
+    x+=spacing;
+
+    int i;
+    char buff[32];
+    for (i=0;i<10;i++)
+    {
+        y+=spacing;
+        sprintf(buff, "Menu item %u", i);
+        
+        if (i==3)
+        {
+            //sprintf(buff, "1234567890123");
+        }
+        if (i==7)
+        {
+            //sprintf(buff, "1234567890123456");
+        }
+
+        if (i==3) // selected
+        {
+            Paint_DrawRectangle(x-2, y-1, x+(Font24.Width)*strlen(buff)+2, y+24+1, WHITE, 1, DRAW_FILL_FULL );
+            Paint_DrawString_EN(x, y, buff, &Font24, 0xfffe, BLACK); 
+            y+=24;
+        }
+        else
+        {
+            Paint_DrawString_EN(x, y, buff, &Font20, BLACK, WHITE);
+            y+=20;
+        }
+    }
+
+    // /*3.Refresh the picture in RAM to LCD*/
+    LCD_1IN3_Display(FrameBuffer);
+    DEV_Delay_ms(2000);
+
 #endif
-#if 1
+#if 0
 
     uint8_t keyA = 15; 
     uint8_t keyB = 17; 
@@ -125,116 +171,115 @@ int main_core0()
     Paint_DrawRectangle(15, 105, 46, 135, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_EMPTY);
     Paint_DrawRectangle(105, 105, 136, 135, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_EMPTY);
     Paint_DrawRectangle(60, 105, 91, 135, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_EMPTY);
-    LCD_1IN3_Display(BlackImage);
+    LCD_1IN3_Display(FrameBuffer);
 
     
     while(1){
-    #if 1
         if(DEV_Digital_Read(keyA ) == 0){
             Paint_DrawRectangle(208, 15, 236, 45, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(208, 15, 236, 45,BlackImage);
+            LCD_1IN3_DisplayWindows(208, 15, 236, 45,FrameBuffer);
             //printf("gpio =%d\r\n",keyA);
         }
         else{
             Paint_DrawRectangle(208, 15, 236, 45, WHITE, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(208, 15, 236, 45,BlackImage);
+            LCD_1IN3_DisplayWindows(208, 15, 236, 45,FrameBuffer);
         }
             
         if(DEV_Digital_Read(keyB ) == 0){
             Paint_DrawRectangle(208, 75, 236, 105, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(208, 75, 236, 105,BlackImage);
+            LCD_1IN3_DisplayWindows(208, 75, 236, 105,FrameBuffer);
             //printf("gpio =%d\r\n",keyB);
         }
         else{
             Paint_DrawRectangle(208, 75, 236, 105, WHITE, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(208, 75, 236, 105,BlackImage);
+            LCD_1IN3_DisplayWindows(208, 75, 236, 105,FrameBuffer);
         }
         
         if(DEV_Digital_Read(keyX ) == 0){
             Paint_DrawRectangle(208, 135, 236, 165, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(208, 135, 236, 165,BlackImage);
+            LCD_1IN3_DisplayWindows(208, 135, 236, 165,FrameBuffer);
             //printf("gpio =%d\r\n",keyX);
         }
         else{
             Paint_DrawRectangle(208, 135, 236, 165, WHITE, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(208, 135, 236, 165,BlackImage);
+            LCD_1IN3_DisplayWindows(208, 135, 236, 165,FrameBuffer);
         }
             
         if(DEV_Digital_Read(keyY ) == 0){
             Paint_DrawRectangle(208, 195, 236, 225, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(208, 195, 236, 225,BlackImage);
+            LCD_1IN3_DisplayWindows(208, 195, 236, 225,FrameBuffer);
             //printf("gpio =%d\r\n",keyY);
         }
         else{
             Paint_DrawRectangle(208, 195, 236, 225, WHITE, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(208, 195, 236, 225,BlackImage);
+            LCD_1IN3_DisplayWindows(208, 195, 236, 225,FrameBuffer);
         }
 
 
         if(DEV_Digital_Read(up ) == 0){
             Paint_DrawRectangle(60, 60, 90, 90, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(60, 60, 90, 90,BlackImage);
+            LCD_1IN3_DisplayWindows(60, 60, 90, 90,FrameBuffer);
             //printf("gpio =%d\r\n",up);
         }
         else{
             Paint_DrawRectangle(60, 60, 90, 90, WHITE, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(60, 60, 90, 90,BlackImage);
+            LCD_1IN3_DisplayWindows(60, 60, 90, 90,FrameBuffer);
         }
 
         if(DEV_Digital_Read(down ) == 0){
             Paint_DrawRectangle(60, 150, 90, 180, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(60, 150, 90, 180,BlackImage);
+            LCD_1IN3_DisplayWindows(60, 150, 90, 180,FrameBuffer);
             //printf("gpio =%d\r\n",dowm);
         }
         else{
             Paint_DrawRectangle(60, 150, 90, 180, WHITE, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(60, 150, 90, 180,BlackImage);
+            LCD_1IN3_DisplayWindows(60, 150, 90, 180,FrameBuffer);
         }
         
         if(DEV_Digital_Read(left ) == 0){
             Paint_DrawRectangle(15, 105, 45, 135, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(15, 105, 45, 135,BlackImage);
+            LCD_1IN3_DisplayWindows(15, 105, 45, 135,FrameBuffer);
             //printf("gpio =%d\r\n",left);
         }
         else{
             Paint_DrawRectangle(15, 105, 45, 135, WHITE, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(15, 105, 45, 135,BlackImage);
+            LCD_1IN3_DisplayWindows(15, 105, 45, 135,FrameBuffer);
         }
             
         if(DEV_Digital_Read(right ) == 0){
             Paint_DrawRectangle(105, 105, 135, 135, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(105, 105, 135, 135,BlackImage);
+            LCD_1IN3_DisplayWindows(105, 105, 135, 135,FrameBuffer);
             //printf("gpio =%d\r\n",right);
         }
         else{
             Paint_DrawRectangle(105, 105, 135, 135, WHITE, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(105, 105, 135, 135,BlackImage);
+            LCD_1IN3_DisplayWindows(105, 105, 135, 135,FrameBuffer);
         }
         
         if(DEV_Digital_Read(ctrl ) == 0){
             Paint_DrawRectangle(60, 105, 90, 135, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(60, 105, 90, 135,BlackImage);
+            LCD_1IN3_DisplayWindows(60, 105, 90, 135,FrameBuffer);
             //printf("gpio =%d\r\n",ctrl);
         }
         else{
             Paint_DrawRectangle(60, 105, 90, 135, WHITE, DOT_PIXEL_2X2,DRAW_FILL_FULL);
-            LCD_1IN3_DisplayWindows(60, 105, 90, 135,BlackImage);
+            LCD_1IN3_DisplayWindows(60, 105, 90, 135,FrameBuffer);
         }
-    #else
-	    //static int counter = 0;
-        //printf("[core0] At cycle %d\n", counter++);
-        sleep_ms(1000);
-    #endif
-
 
     }
 
 #endif
 
     /* Module Exit */
-    free(BlackImage);
-    BlackImage = NULL;
+    free(FrameBuffer);
+    FrameBuffer = NULL;
     
+
+    while(1){
+	    //static int counter = 0;
+        //printf("[core0] At cycle %d\n", counter++);
+        sleep_ms(1000);
+    }
     
     DEV_Module_Exit();
     return 0;
