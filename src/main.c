@@ -19,8 +19,60 @@
 
 static uint32_t core1_stack_static[PICO_CORE1_STACK_SIZE / sizeof(uint32_t)];
 
-bool reserved_addr(uint8_t addr) {
-return (addr & 0x78) == 0 || (addr & 0x78) == 0x78;
+void draw_menu(size_t argc, const char** argv, size_t selected, size_t* start) 
+{
+    const uint8_t maxnum = 10;
+    const uint8_t spacing = 3;
+    char buff[32];
+    uint8_t x = 0;
+    uint8_t y = 0;
+    size_t start_missing = 0;
+    
+    if (argc <= selected)
+    {
+        selected = (argc-1);
+    }
+    if (start == NULL)
+    {
+        start = &start_missing;
+    }
+
+    if (selected <= (*start))
+    {
+        *start = (0 == selected) ? selected : (selected - 1);
+    }
+    if (((*start)+maxnum-1) <= selected )
+    {
+        *start = ((argc-1) == selected) ? (selected - maxnum + 1) : (selected - maxnum + 2);
+    }
+    
+    //TODO: move start pos based on selected movement
+
+    Paint_Clear(BLACK);
+    x+=spacing;
+
+    uint8_t i;
+    for (i=*start;i<((*start)+maxnum);i++)
+    {
+        y+=spacing;
+        const char* current = argv[i];
+
+        if (i==selected)
+        {
+            snprintf(buff, 14, current);
+            //need fill as Paint_DrawString_EN is not drawing white bg
+            Paint_DrawRectangle(x-2, y-1, LCD_1IN3.WIDTH-spacing+2, y+24+1, WHITE, 1, DRAW_FILL_FULL ); 
+            //Paint_DrawRectangle(x-2, y-1, x+(Font24.Width)*strlen(buff)+2, y+24+1, WHITE, 1, DRAW_FILL_FULL ); 
+            Paint_DrawString_EN(x, y, buff, &Font24, 0xfffe, BLACK); 
+            y+=24;
+        }
+        else
+        {
+            snprintf(buff, 17, current);
+            Paint_DrawString_EN(x, y, buff, &Font20, BLACK, WHITE);
+            y+=20;
+        }
+    }
 }
 
 void SET_Button_PIN(uint8_t PIN)
@@ -95,45 +147,84 @@ int main_core0()
     // Paint_DrawString_EN: bg and fg is swapped
     // 1*Font24 plus 9*Font20 rows fit well on the 240p height (10 lines menu)
     // 13*Font24 or 16*Font20 fit on the 240p width
-
-    Paint_Clear(BLACK);
-    int x = 0;
-    int y = 0;
-    int spacing = 3;
     
-    x+=spacing;
+    bool changed = true;
+    size_t start = 0;
+    size_t selected = 0;
+    const uint8_t up = 2;
+    const uint8_t down = 18;
+	SET_Button_PIN(up);
+    SET_Button_PIN(down);
+    sleep_ms(50);
+    
+    const char* menu[] = {
+        "Menuitem 1",
+        "Menuitem 2",
+        "Menuitem 3",
+        "Menuitem 4",
+        "Menuitem 5",
+        "Menuitem 6 this is very looong",
+        "Menuitem 7",
+        "Menuitem 8",
+        "Menuitem 9",
+        "Menuitem 10",
+        "11 Lorem ipsum",
+        "12 dolor sit amet",
+        "13 consectetur",
+        "14 adipiscing elit",
+        "15 sed do eiusmod",
+        "16  tempor incididunt"
+    };
 
-    int i;
-    char buff[32];
-    for (i=0;i<10;i++)
-    {
-        y+=spacing;
-        sprintf(buff, "Menu item %u", i);
+    uint32_t states[24] = {0};
+    uint32_t states_prev[24] = {0};
+    const uint8_t keys[] = {up, down};
+
+    const uint32_t repeat_ms = 250;
+
+    while(1){
+        int i;
+        uint32_t now = (time_us_64() / 1000);
+        for (i=0;i<count_of(keys);i++)
+        {
+            uint8_t key = keys[i];
+            bool down = ! DEV_Digital_Read(key); //pullups
+            if (!down)
+            {
+                states[key] = 0;
+            }
+            if (down && !states[key])
+            {
+                states[key] = now;
+            }
+            if (down && repeat_ms<(now-states_prev[key]))
+            {
+                states_prev[key] = 0;
+            }
+        }
+
+        if( states[up] && !states_prev[up] && 0<selected){
+            selected--;
+            changed = true;
+        }
+        if( states[down] && !states_prev[down] && selected<(count_of(menu)-1)){
+            selected++;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            draw_menu(count_of(menu), menu, selected, &start);
+            LCD_1IN3_Display(FrameBuffer);
+            changed = false;
+        }
         
-        if (i==3)
+        for (i=0;i<count_of(keys);i++)
         {
-            //sprintf(buff, "1234567890123");
-        }
-        if (i==7)
-        {
-            //sprintf(buff, "1234567890123456");
-        }
-
-        if (i==3) // selected
-        {
-            Paint_DrawRectangle(x-2, y-1, x+(Font24.Width)*strlen(buff)+2, y+24+1, WHITE, 1, DRAW_FILL_FULL );
-            Paint_DrawString_EN(x, y, buff, &Font24, 0xfffe, BLACK); 
-            y+=24;
-        }
-        else
-        {
-            Paint_DrawString_EN(x, y, buff, &Font20, BLACK, WHITE);
-            y+=20;
+            uint8_t key = keys[i];
+            states_prev[key] = states[key];
         }
     }
-
-    // /*3.Refresh the picture in RAM to LCD*/
-    LCD_1IN3_Display(FrameBuffer);
     DEV_Delay_ms(2000);
 
 #endif
