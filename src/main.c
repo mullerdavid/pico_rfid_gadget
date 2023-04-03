@@ -17,7 +17,18 @@
 
 #include "ImageData.h"
 
+//TODO: CPP implementation
+
 static uint32_t core1_stack_static[PICO_CORE1_STACK_SIZE / sizeof(uint32_t)];
+
+typedef struct read_struct {
+    rfid_7941w_type_t type;
+    uint8_t vendor;
+    uint32_t id;
+} read_struct_t;
+
+static volatile read_struct_t read_buffer[64];
+static volatile size_t read_buffer_counter;
 
 void draw_menu(size_t argc, const char** argv, size_t selected, size_t* start) 
 {
@@ -86,6 +97,55 @@ void SET_Button_PIN(uint8_t PIN)
     gpio_pull_up(PIN); //Need to pull up
 }
 
+typedef enum app_state {
+  MAIN,
+  READ,
+  WRITE_LF,
+  WRITE_HF
+} app_state_t;
+
+
+
+void main_core1() 
+{
+    while (true) {
+	    //static int counter = 0;
+        //printf("[core1] At cycle %d\n", counter++);
+        
+        rfid_7941w_type_t info;
+        uint64_t id = rfid_7941w_alt_read_id_with_info(uart1, &info);
+
+        if (info != ERROR)
+        {
+            read_struct_t current;
+            current.type = info;
+            current.vendor = (uint8_t)(id >> 32);
+            current.id = (uint32_t)id;
+            printf("Received id: %010lu\n", current.id);
+
+            const size_t rb_size = count_of(read_buffer);
+            size_t last_index = (0<read_buffer_counter ? (read_buffer_counter-1) % rb_size : 0);
+            size_t new_index = read_buffer_counter % rb_size;
+            volatile read_struct_t *last = &read_buffer[last_index];
+            volatile read_struct_t *new = &read_buffer[new_index];
+
+            if (last->type != current.type || last->vendor != current.vendor || last->id != current.id)
+            {
+                printf(" Adding to buffer. %u\n", read_buffer_counter);
+                new->type = current.type;
+                new->vendor = current.vendor;
+                new->id = current.id;
+                read_buffer_counter++;
+            }
+
+            sleep_ms(500);
+        }
+
+        sleep_ms(200);
+    }
+}
+
+
 int main_core0() 
 {
     /* Buttons */
@@ -129,10 +189,17 @@ int main_core0()
     
     // /* GUI */
 
-    const char* menu[] = {
-        "Menuitem 1",
-        "Menuitem 2",
-        "Menuitem 3"
+    const char* main_menu[] = {
+        "Read",
+        "Write 125 khz",
+        "Write 13.36 mhz"
+    };
+    const char* read_menu[] = {
+        "12314514123414",
+        "adsasdasasd",
+        "adsasdasasd",
+        "adsasdasasd",
+        "14fsdsdfsdga"
     };
 
     const uint32_t repeat_ms = 250;
@@ -142,8 +209,14 @@ int main_core0()
     size_t selected = 0;
     uint32_t states[24] = {0};
     uint32_t states_prev[24] = {0};
+    app_state_t app = MAIN;
+
+    size_t read_buffer_counter_prev;
+
 
     while(1){
+        const char** menu;
+        size_t menu_count;
         int i;
         uint32_t now = (time_us_64() / 1000);
         for (i=0;i<count_of(keys);i++)
@@ -164,21 +237,63 @@ int main_core0()
             }
         }
 
+        if (app == MAIN)
+        {
+            menu = main_menu;
+            menu_count = count_of(main_menu);
+
+            if((states[ctrl] && !states_prev[ctrl]) || (states[keyA] && !states_prev[keyA]))
+            {
+                switch (selected)
+                {
+                case 0:
+                    {
+                        changed = true;
+                        app = READ;
+                        selected = 0;
+                        read_buffer_counter_prev = 0;
+                        multicore_launch_core1_with_stack(main_core1, core1_stack_static, sizeof(core1_stack_static));
+                        continue;
+                    }
+                    break;
+                
+                default:
+                    break;
+                }
+                printf("CTRL\n");
+            }
+        }
+        else if (app == READ)
+        {
+            if (read_buffer_counter_prev != read_buffer_counter)
+            {
+            }
+
+            menu_count = count_of(read_menu);
+            menu = read_menu;
+
+            if( states[keyB] && !states_prev[keyB])
+            {
+                multicore_reset_core1();
+                changed = true;
+                app = MAIN;
+                selected = 0;
+                continue;
+            }
+        }
+
         if( states[up] && !states_prev[up] && 0<selected){
             selected--;
             changed = true;
         }
-        if( states[down] && !states_prev[down] && selected<(count_of(menu)-1)){
+        if( states[down] && !states_prev[down] && selected<(menu_count-1)){
             selected++;
             changed = true;
-        }
-        if( states[ctrl] && !states_prev[ctrl]){
-            break;
         }
 
         if (changed)
         {
-            draw_menu(count_of(menu), menu, selected, &start);
+            draw_menu(menu_count, menu, selected, &start);
             LCD_1IN3_Display(FrameBuffer);
             changed = false;
         }
@@ -200,25 +315,6 @@ int main_core0()
     return 0;
 }
 
-void main_core1() 
-{
-    while (true) {
-	    //static int counter = 0;
-        //printf("[core1] At cycle %d\n", counter++);
-        
-        uint64_t id = rfid_7941w_alt_read_id(uart1);
-
-        if (id != 0)
-        {
-            printf("Received id: %010lu\n", (uint32_t)id);
-            sleep_ms(500);
-        }
-
-        sleep_ms(100);
-        sleep_ms(800);
-    }
-}
-
 int main() 
 {
     int ret;
@@ -233,7 +329,6 @@ int main()
     // Need to come after DEV_Module_Init to reinit Pin 6/7 for uart1
     rfid_7941w_init(uart1);
     
-    multicore_launch_core1_with_stack(main_core1, core1_stack_static, sizeof(core1_stack_static));
 
     if(lcd_board_error)
     { 
