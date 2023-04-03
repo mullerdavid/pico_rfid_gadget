@@ -21,6 +21,13 @@ static uint32_t core1_stack_static[PICO_CORE1_STACK_SIZE / sizeof(uint32_t)];
 
 void draw_menu(size_t argc, const char** argv, size_t selected, size_t* start) 
 {
+    // 1*Font24 plus 9*Font20 rows fit well on the 240p height (10 lines menu)
+    // 13*Font24 or 16*Font20 fit on the 240p width
+    
+    // Paint API has multiple bugs
+    // Paint_DrawChar: FONT_BACKGROUND (white) bg is not drawn, need manual coloring before in case of white
+    // Paint_DrawString_EN: bg and fg is swapped
+
     const uint8_t maxnum = 10;
     const uint8_t spacing = 3;
     char buff[32];
@@ -45,8 +52,6 @@ void draw_menu(size_t argc, const char** argv, size_t selected, size_t* start)
     {
         *start = ((argc-1) == selected) ? (selected - maxnum + 1) : (selected - maxnum + 2);
     }
-    
-    //TODO: move start pos based on selected movement
 
     Paint_Clear(BLACK);
     x+=spacing;
@@ -63,7 +68,7 @@ void draw_menu(size_t argc, const char** argv, size_t selected, size_t* start)
             //need fill as Paint_DrawString_EN is not drawing white bg
             Paint_DrawRectangle(x-2, y-1, LCD_1IN3.WIDTH-spacing+2, y+24+1, WHITE, 1, DRAW_FILL_FULL ); 
             //Paint_DrawRectangle(x-2, y-1, x+(Font24.Width)*strlen(buff)+2, y+24+1, WHITE, 1, DRAW_FILL_FULL ); 
-            Paint_DrawString_EN(x, y, buff, &Font24, 0xfffe, BLACK); 
+            Paint_DrawString_EN(x, y, buff, &Font24, WHITE, BLACK); 
             y+=24;
         }
         else
@@ -83,6 +88,27 @@ void SET_Button_PIN(uint8_t PIN)
 
 int main_core0() 
 {
+    /* Buttons */
+    
+    uint8_t keyA = 15; 
+    uint8_t keyB = 17; 
+    uint8_t keyX = 19; 
+    uint8_t keyY = 21;
+    uint8_t up = 2;
+	uint8_t down = 18;
+	uint8_t left = 16;
+	uint8_t right = 20;
+	uint8_t ctrl = 3;
+    const uint8_t keys[] = {keyA, keyB, keyX, keyY, up, down, left, right, ctrl};
+    {
+        int i;
+        for (i=0;i<count_of(keys);i++)
+        {
+            uint8_t key = keys[i];
+            SET_Button_PIN(key);
+        }
+    }
+
     /* LCD Init */
     printf("1.3inch LCD demo...\r\n");
     LCD_1IN3_Init(HORIZONTAL);
@@ -104,7 +130,7 @@ int main_core0()
     
     // /* GUI */
     printf("drawing...\r\n");
-    // /*2.Drawing on the image*/
+    
 #if 0
      Paint_DrawImage(gImage_1inch3_1,0,0,240,240);
      LCD_1IN3_Display(FrameBuffer);
@@ -142,21 +168,8 @@ int main_core0()
 
 #endif
 #if 1
-    // Paint API has multiple bugs
-    // Paint_DrawChar: FONT_BACKGROUND (white) bg is not drawn, need manual coloring before in case of white
-    // Paint_DrawString_EN: bg and fg is swapped
-    // 1*Font24 plus 9*Font20 rows fit well on the 240p height (10 lines menu)
-    // 13*Font24 or 16*Font20 fit on the 240p width
-    
-    bool changed = true;
-    size_t start = 0;
-    size_t selected = 0;
-    const uint8_t up = 2;
-    const uint8_t down = 18;
-	SET_Button_PIN(up);
-    SET_Button_PIN(down);
-    sleep_ms(50);
-    
+
+
     const char* menu[] = {
         "Menuitem 1",
         "Menuitem 2",
@@ -176,11 +189,13 @@ int main_core0()
         "16  tempor incididunt"
     };
 
+    const uint32_t repeat_ms = 250;
+
+    bool changed = true;
+    size_t start = 0;
+    size_t selected = 0;
     uint32_t states[24] = {0};
     uint32_t states_prev[24] = {0};
-    const uint8_t keys[] = {up, down};
-
-    const uint32_t repeat_ms = 250;
 
     while(1){
         int i;
@@ -211,6 +226,9 @@ int main_core0()
             selected++;
             changed = true;
         }
+        if( states[ctrl] && !states_prev[ctrl]){
+            break;
+        }
 
         if (changed)
         {
@@ -224,34 +242,13 @@ int main_core0()
             uint8_t key = keys[i];
             states_prev[key] = states[key];
         }
+        sleep_ms(15);
     }
-    DEV_Delay_ms(2000);
+    sleep_ms(1000);
 
 #endif
-#if 0
+#if 1
 
-    uint8_t keyA = 15; 
-    uint8_t keyB = 17; 
-    uint8_t keyX = 19; 
-    uint8_t keyY = 21;
-
-    uint8_t up = 2;
-	uint8_t down = 18;
-	uint8_t left = 16;
-	uint8_t right = 20;
-	uint8_t ctrl = 3;
-   
-    SET_Button_PIN(keyA);    
-    SET_Button_PIN(keyB);
-    SET_Button_PIN(keyX);
-    SET_Button_PIN(keyY);
-		 
-	SET_Button_PIN(up);
-    SET_Button_PIN(down);
-    SET_Button_PIN(left);
-    SET_Button_PIN(right);
-    SET_Button_PIN(ctrl);
-    
     Paint_Clear(WHITE);
     Paint_DrawRectangle(208, 15, 237, 45, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_EMPTY);
     Paint_DrawRectangle(208, 75, 237, 105, 0xF800, DOT_PIXEL_2X2,DRAW_FILL_EMPTY);
